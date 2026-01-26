@@ -1,0 +1,17 @@
+# Environment variables
+.env
+
+# Dependencies
+node_modules/
+__pycache__/
+.venv/
+venv/
+
+# Docker
+docker-data/
+*.log
+
+# IDE/System
+.DS_Store
+.vscode/
+.idea/

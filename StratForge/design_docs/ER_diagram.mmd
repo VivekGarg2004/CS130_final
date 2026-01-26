@@ -1,0 +1,84 @@
+erDiagram
+    USERS {
+        UUID id PK
+        VARCHAR email UNIQUE
+        VARCHAR password_hash
+        VARCHAR username UNIQUE
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    STRATEGIES {
+        UUID id PK
+        UUID user_id FK
+        VARCHAR name
+        VARCHAR symbol
+        TEXT python_code
+        TEXT logic_explanation
+        TIMESTAMP created_at
+    }
+
+    SESSIONS {
+        UUID id PK
+        UUID user_id FK
+        UUID strategy_id FK
+        VARCHAR mode
+        VARCHAR status
+        TIMESTAMP started_at
+        TIMESTAMP ended_at
+        DECIMAL final_pnl
+        JSONB state_metadata
+    }
+
+    MARKET_DATA {
+        TIMESTAMP time PK
+        VARCHAR symbol PK
+        DECIMAL open
+        DECIMAL high
+        DECIMAL low
+        DECIMAL close
+        BIGINT volume
+    }
+
+    SIGNALS {
+        UUID id PK
+        UUID session_id FK
+        VARCHAR symbol
+        VARCHAR action
+        DECIMAL confidence
+        TIMESTAMP generated_at
+        TIMESTAMP processed_at
+        VARCHAR status
+        JSONB metadata
+    }
+
+    TRADES {
+        UUID id PK
+        UUID session_id FK
+        UUID signal_id FK
+        VARCHAR symbol
+        VARCHAR action
+        DECIMAL price
+        DECIMAL quantity
+        TIMESTAMP executed_at
+    }
+
+    POSITIONS {
+        UUID id PK
+        UUID session_id FK
+        VARCHAR symbol
+        DECIMAL quantity
+        DECIMAL average_entry_price
+        TIMESTAMP last_updated
+    }
+
+    USERS ||--o{ STRATEGIES : owns
+    USERS ||--o{ SESSIONS : runs
+
+    STRATEGIES ||--o{ SESSIONS : executed_as
+
+    SESSIONS ||--o{ SIGNALS : generates
+    SESSIONS ||--o{ TRADES : executes
+    SESSIONS ||--o{ POSITIONS : tracks
+
+    SIGNALS ||--o{ TRADES : triggers

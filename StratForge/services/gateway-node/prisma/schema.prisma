@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../node_modules/@prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model market_data {
+  time   DateTime @db.Timestamp(6)
+  symbol String   @db.VarChar(10)
+  open   Decimal  @db.Decimal
+  high   Decimal  @db.Decimal
+  low    Decimal  @db.Decimal
+  close  Decimal  @db.Decimal
+  volume BigInt
+
+  @@id([time, symbol])
+  @@index([symbol], map: "idx_market_data_symbol")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model sessions {
+  id             String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  strategy_id    String     @db.Uuid
+  mode           String     @db.VarChar(10)
+  status         String?    @default("RUNNING") @db.VarChar(20)
+  started_at     DateTime?  @default(now()) @db.Timestamp(6)
+  ended_at       DateTime?  @db.Timestamp(6)
+  final_pnl      Decimal?   @db.Decimal
+  state_metadata Json?      @default("{}")
+  strategies     strategies @relation(fields: [strategy_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  signals        signals[]
+  trades         trades[]
+
+  @@index([status], map: "idx_sessions_status")
+  @@index([strategy_id], map: "idx_sessions_strategy_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model signals {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  session_id   String    @db.Uuid
+  symbol       String    @db.VarChar(10)
+  action       String?   @db.VarChar(4)
+  confidence   Decimal?  @db.Decimal
+  generated_at DateTime? @default(now()) @db.Timestamp(6)
+  processed_at DateTime? @db.Timestamp(6)
+  status       String?   @default("PENDING") @db.VarChar(20)
+  metadata     Json?     @default("{}")
+  sessions     sessions  @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  trades       trades[]
+
+  @@index([session_id], map: "idx_signals_session_id")
+  @@index([status], map: "idx_signals_status")
+}
+
+model strategies {
+  id                String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id           String     @db.Uuid
+  name              String     @db.VarChar(100)
+  symbol            String     @db.VarChar(10)
+  python_code       String
+  logic_explanation String?
+  created_at        DateTime?  @default(now()) @db.Timestamp(6)
+  sessions          sessions[]
+  users             users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_strategies_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model trades {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  session_id  String    @db.Uuid
+  signal_id   String?   @db.Uuid
+  symbol      String    @db.VarChar(10)
+  action      String?   @db.VarChar(4)
+  price       Decimal   @db.Decimal
+  quantity    Decimal   @default(1) @db.Decimal
+  executed_at DateTime? @default(now()) @db.Timestamp(6)
+  sessions    sessions  @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  signals     signals?  @relation(fields: [signal_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([executed_at], map: "idx_trades_executed_at")
+  @@index([session_id], map: "idx_trades_session_id")
+}
+
+model users {
+  id            String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email         String       @unique @db.VarChar(255)
+  password_hash String       @db.VarChar(255)
+  username      String?      @unique @db.VarChar(50)
+  created_at    DateTime?    @default(now()) @db.Timestamp(6)
+  updated_at    DateTime?    @default(now()) @db.Timestamp(6)
+  strategies    strategies[]
+}

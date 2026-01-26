@@ -1,0 +1,39 @@
+graph TD
+    subgraph "External Services"
+        Alpaca_WS[Alpaca WebSocket]
+        Alpaca_REST[Alpaca REST API]
+        Gemini[Gemini AI API]
+    end
+
+    subgraph "Node.js (Orchestrator)"
+        Ingestor[Ingestor Service]
+        API[API Gateway & Order Mgr]
+    end
+
+    subgraph "Data Layer"
+        Redis[(Redis Pub/Sub & Cache)]
+        Postgres[(PostgreSQL)]
+    end
+
+    subgraph "Python (Execution Engine)"
+        Worker[Python Strategy Worker]
+    end
+
+    %% Market Data Flow
+    Alpaca_WS -->|1-min Bars| Ingestor
+    Ingestor -->|Publish| Redis
+    Redis -.->|Subscribe| Worker
+
+    %% Strategy Setup
+    User((User)) -->|NL Request| API
+    API -->|Prompt| Gemini
+    Gemini -->|JSON & Python Code| API
+    API -->|Save Strategy| Postgres
+
+    %% Execution Flow
+    Worker -->|Query Active Strategies| Postgres
+    Worker -->|Execute Logic| Worker
+    Worker -->|Signal: BUY/SELL| API
+    API -->|Check State/Risk| Postgres
+    API -->|Order Placement| Alpaca_REST
+    API -->|Real-time Update| User

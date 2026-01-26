@@ -1,0 +1,32 @@
+sequenceDiagram
+    autonumber
+
+    participant U as User
+    participant S as Strategy
+    participant SE as Session
+    participant MD as Market_Data
+    participant SIG as Signal
+    participant TR as Trade
+    participant POS as Position
+
+    U->>S: Define strategy (python_code)
+    U->>SE: Start session (LIVE / PAPER / BACKTEST / MANUAL)
+
+    SE->>MD: Read market data (candles, ticks)
+    SE->>S: Execute strategy logic
+    S-->>SIG: Generate BUY / SELL intent
+
+    SIG->>SE: Attach to session
+    SE->>TR: Execute trade (or reject/expire)
+    TR->>POS: Update quantity & avg entry
+
+    loop During session
+        SE->>MD: Poll new market data
+        SE->>S: Re-evaluate logic
+        S-->>SIG: New signal (optional)
+        SIG->>TR: Trade (optional)
+        TR->>POS: Adjust position
+    end
+
+    SE->>SE: Stop session
+    SE->>SE: Compute final PnL
