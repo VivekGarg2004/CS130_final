@@ -23,7 +23,7 @@ export const config = {
         FEED: 'iex', // 'iex' for free paper trading, 'sip' for paid
         PAPER: true
     },
-    REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+    REDIS_URL: process.env.REDIS_URL || (process.env.REDIS_HOST === 'redis' ? 'redis://localhost:6379' : `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`),
     SYMBOLS: ['AAPL', 'SPY', 'QQQ'], // Stock Symbols
     CRYPTO_SYMBOLS: ['BTC/USD', 'ETH/USD'] // Crypto Symbols
 };

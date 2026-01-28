@@ -1,7 +1,8 @@
 import { config } from './config.js';
-import { AlpacaConsumer } from './services/AlpacaConsumer.js';
+import { StockConsumer } from './services/StockConsumer.js';
 import { CryptoConsumer } from './services/CryptoConsumer.js';
 import { RedisPublisher } from './services/RedisPublisher.js';
+import { ControlSubscriber } from './services/ControlSubscriber.js';
 import { NormalizedBar, NormalizedTrade } from './types.js';
 import { logger } from './utils/logger.js';
 
@@ -10,7 +11,7 @@ async function main() {
 
     // 1. Initialize Services
     const redisPublisher = new RedisPublisher();
-    const alpacaConsumer = new AlpacaConsumer();
+    const alpacaConsumer = new StockConsumer();
     const cryptoConsumer = new CryptoConsumer();
 
     // 2. Connect Redis
@@ -62,6 +63,10 @@ async function main() {
     await cryptoConsumer.connect();
     cryptoConsumer.subscribeToBars(cryptoSymbols);
     cryptoConsumer.subscribeToTrades(cryptoSymbols);
+
+    // 5. Connect Control Plane
+    const controlSubscriber = new ControlSubscriber(alpacaConsumer, cryptoConsumer);
+    await controlSubscriber.connect();
 
     // Keep alive
     process.on('SIGINT', async () => {

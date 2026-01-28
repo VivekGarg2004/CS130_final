@@ -34,10 +34,12 @@ model sessions {
   strategies     strategies @relation(fields: [strategy_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   signals        signals[]
   trades         trades[]
+  positions      positions[]
 
   @@index([status], map: "idx_sessions_status")
   @@index([strategy_id], map: "idx_sessions_strategy_id")
 }
+
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model signals {
@@ -96,4 +98,16 @@ model users {
   created_at    DateTime?    @default(now()) @db.Timestamp(6)
   updated_at    DateTime?    @default(now()) @db.Timestamp(6)
   strategies    strategies[]
+}
+
+model positions {
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  session_id          String    @db.Uuid
+  symbol              String    @db.VarChar(10)
+  quantity            Decimal   @db.Decimal
+  average_entry_price Decimal   @db.Decimal
+  last_updated        DateTime? @default(now()) @db.Timestamp(6)
+  sessions            sessions  @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([session_id], map: "idx_positions_session_id")
 }
