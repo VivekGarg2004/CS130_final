@@ -159,6 +159,31 @@ The database is designed for stateful execution, ensuring that the Python worker
    - Redis: localhost:6379
    - Postgres: localhost:5433 (User: stratforge, DB: stratforge)
 
+3. Run the gateway API (strategy creation):
+   ```bash
+   cd services/gateway-node
+   npm install
+   npm run dev
+   ```
+
+4. Create a strategy (example):
+   ```bash
+   docker exec -it stratforge-postgres psql -U stratforge -d stratforge -c \
+     "INSERT INTO users (email, password_hash, username) VALUES ('demo@example.com', 'hash', 'demo') ON CONFLICT (email) DO NOTHING; SELECT id FROM users WHERE email='demo@example.com';"
+   ```
+   Copy the returned `id` value and use it as `user_id` below.
+   ```bash
+   curl -X POST http://localhost:3000/api/strategies \
+     -H "Content-Type: application/json" \
+     -d '{
+      "user_id": "REPLACE_WITH_USER_ID",
+       "name": "RSI Mean Reversion",
+       "symbol": "AAPL",
+       "python_code": "print(\"hello\")",
+       "logic_explanation": "Example placeholder"
+     }'
+   ```
+
 ## Structure
 
 - `/infra`: Infrastructure configuration (Docker).
