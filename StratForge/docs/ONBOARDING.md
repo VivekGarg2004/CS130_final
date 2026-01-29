@@ -13,11 +13,22 @@ docker compose up -d
 cd services/gateway-node
 npm install && npm run build && npm start
 
-# 3. Start frontend (terminal 2)  
+#3. Start worker (terminal 2)
+cd services/worker-python
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python3 main.py
+
+#4. Start ingestor (terminal 3)
+cd services/ingestor-node
+npm install && npm run build && npm start
+
+# 5. Start frontend (terminal 4)  
 cd frontend
 npm install && npm run dev -- -p 3001
 
-# 4. Open http://localhost:3001
+# 6. Open http://localhost:3001
 ```
 
 ## Architecture Overview
@@ -68,12 +79,11 @@ StratForge/
 ├── db/                       # Database migrations
 ├── design_docs/              # Architecture diagrams
 └── docker-compose.yml        # Infrastructure
-```
 
 ## Key Files to Read First
 
 1. **[README.md](../README.md)** - Project overview
-2. **[api_design.md](../.gemini/antigravity/brain/*/api_design.md)** - All API endpoints documented
+2. **[api_design.md](./api_design.md)** - All API endpoints documented
 3. **[gateway-node/src/index.ts](../services/gateway-node/src/index.ts)** - Main server entry
 4. **[frontend/app/dashboard/page.tsx](../frontend/app/dashboard/page.tsx)** - Main UI
 
