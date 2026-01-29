@@ -6,6 +6,8 @@ import { useAuth } from '@/context/AuthContext';
 
 const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: '📊' },
+    { href: '/strategies', label: 'Strategies', icon: '🤖' },
+    { href: '/trades', label: 'Trade Log', icon: '📈' },
     { href: '/trade', label: 'Trade', icon: '💹' },
     { href: '/orders', label: 'Orders', icon: '📋' },
 ];
@@ -32,8 +34,8 @@ export default function Sidebar() {
                                 <Link
                                     href={item.href}
                                     className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                                            ? 'bg-emerald-600 text-white'
-                                            : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                                        ? 'bg-emerald-600 text-white'
+                                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
                                         }`}
                                 >
                                     <span>{item.icon}</span>

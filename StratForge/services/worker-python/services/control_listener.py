@@ -22,7 +22,8 @@ class ControlListener:
                     if event.action == 'subscribe':
                         # Default ID if none provided (for manual testing)
                         sid = event.strategyId or f"strat_{event.symbol}"
-                        self.manager.start_session(event.symbol, sid)
+                        session_id = event.sessionId if hasattr(event, 'sessionId') else None
+                        self.manager.start_session(event.symbol, sid, session_id=session_id)
                     
                     elif event.action == 'unsubscribe':
                         # Stop ALL strategies for this symbol? Or specific ID?

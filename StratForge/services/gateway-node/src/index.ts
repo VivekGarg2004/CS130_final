@@ -6,18 +6,22 @@ import { redisService } from './services/RedisService.js';
 import sessionRoutes from './routes/sessionRoutes.js';
 import tradeRoutes from './routes/tradeRoutes.js';
 import authRoutes from './routes/authRoutes.js';
+import strategyRoutes from './routes/strategyRoutes.js';
+import internalRoutes from './routes/internalRoutes.js';
 
 const app = express();
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: '1mb' })); // Increase limit for Python code
 app.use(cors());
 app.use(morgan('dev'));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/strategies', strategyRoutes);
+app.use('/api/trade', tradeRoutes);
 app.use('/sessions', sessionRoutes);
-app.use('/trade', tradeRoutes);
+app.use('/internal', internalRoutes);
 
 async function startServer() {
     try {

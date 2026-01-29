@@ -24,3 +24,5 @@ class ControlEvent(BaseModel):
     symbol: str
     type: str    # 'stock' | 'crypto'
     strategyId: Optional[str] = None
+    sessionId: Optional[str] = None
+

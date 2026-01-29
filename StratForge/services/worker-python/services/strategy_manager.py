@@ -11,7 +11,7 @@ class StrategyManager:
         self.active_strategies: Dict[str, Dict[str, BaseStrategy]] = {}
         self.db_client = DBClient()
 
-    def start_session(self, symbol: str, strategy_id: str, strategy_type: str = "mock"):
+    def start_session(self, symbol: str, strategy_id: str, session_id: str = None, strategy_type: str = "mock"):
         if symbol not in self.active_strategies:
             self.active_strategies[symbol] = {}
 
@@ -35,14 +35,14 @@ class StrategyManager:
 
         # Factory Logic (Expand later with more types)
         if strategy_type == "mock":
-            strategy = MockStrategy(strategy_id, symbol)
+            strategy = MockStrategy(strategy_id, symbol, session_id)
         else:
             print(f"[ERROR] Unknown strategy type: {strategy_type}")
             return
 
         self.active_strategies[symbol][strategy_id] = strategy
         strategy.on_start()
-        print(f"[MANAGER] Started {strategy_id} on {symbol}. Active: {len(self.active_strategies[symbol])}")
+        print(f"[MANAGER] Started {strategy_id} on {symbol} (session: {session_id}). Active: {len(self.active_strategies[symbol])}")
 
     def stop_session(self, symbol: str, strategy_id: str):
         if symbol in self.active_strategies and strategy_id in self.active_strategies[symbol]:
