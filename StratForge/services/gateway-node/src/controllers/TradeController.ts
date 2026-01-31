@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { alpacaService } from '../services/AlpacaService.js';
+import { VirtualizationProxy } from '../services/VirtualizationProxy.js';
 import { pool } from '../db.js';
 
 interface AuthenticatedRequest extends Request {
@@ -27,26 +28,34 @@ export class TradeController {
         }
     }
 
-    static async placeOrder(req: Request, res: Response): Promise<void> {
+    static async placeOrder(req: AuthenticatedRequest, res: Response): Promise<void> {
+        const userId = req.user?.id;
+        if (!userId) {
+            res.status(401).json({ error: 'Not authenticated' });
+            return;
+        }
+
         try {
-            const { symbol, qty, side, type } = req.body;
+            const { symbol, qty, side, type, limit_price, time_in_force } = req.body;
 
             if (!symbol || !qty || !side) {
                 res.status(400).json({ error: "Missing required fields: symbol, qty, side" });
                 return;
             }
 
-            const order = await alpacaService.placeOrder({
+            // Using VirtualizationProxy to ensure DB state updates
+            const result = await VirtualizationProxy.executeOrder(userId, {
                 symbol,
                 qty: Number(qty),
                 side,
                 type: type || 'market',
-                time_in_force: 'day'
+                limit_price: limit_price ? Number(limit_price) : undefined,
+                time_in_force: time_in_force || 'day'
             });
 
-            res.status(201).json(order);
+            res.status(201).json(result);
         } catch (err: any) {
-            console.error("Alpaca Order Error:", err);
+            console.error("Order Execution Error:", err);
             res.status(500).json({ error: err.message });
         }
     }
@@ -54,10 +63,46 @@ export class TradeController {
     static async getOrders(req: Request, res: Response): Promise<void> {
         try {
             const status = (req.query.status as any) || 'all';
-            const orders = await alpacaService.getOrders(status);
+            const orders = await alpacaService.getOrders({ status });
             res.json(orders);
         } catch (err: any) {
             console.error("Alpaca History Error:", err);
+            res.status(500).json({ error: err.message });
+        }
+    }
+
+    static async cancelOrder(req: AuthenticatedRequest, res: Response): Promise<void> {
+        const userId = req.user?.id;
+        const { id } = req.params;
+
+        if (!userId) {
+            res.status(401).json({ error: 'Not authenticated' });
+            return;
+        }
+
+        try {
+            // We could validate that the order belongs to the user via DB lookup,
+            // but for POC, we'll let Alpaca handle the ID check (unless we stored alpaca_id locally?)
+            // We DO store it locally.
+            // Safe approach: Check DB first.
+
+            const tradeRes = await pool.query(
+                `SELECT * FROM trades WHERE alpaca_order_id = $1 AND user_id = $2`,
+                [id as string, userId]
+            );
+
+            if (tradeRes.rows.length === 0) {
+                res.status(404).json({ error: "Order not found or access denied" });
+                return;
+            }
+
+            await alpacaService.cancelOrder(id);
+            // No need to update DB here; Reconciliation Service will catch the 'CANCELED' state
+            // and process the refund/status update.
+
+            res.status(200).json({ message: "Order cancellation requested" });
+        } catch (err: any) {
+            console.error("Cancel Order Error:", err);
             res.status(500).json({ error: err.message });
         }
     }
@@ -95,57 +140,63 @@ export class TradeController {
                 [sessionId, symbol, action, confidence || 0.5]
             );
 
-            // Create trade
-            const tradeResult = await pool.query(
-                `INSERT INTO trades (session_id, signal_id, user_id, symbol, action, price, quantity)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7)
-                 RETURNING id, executed_at`,
-                [sessionId, signalResult.rows[0].id, userId, symbol, action, price, quantity]
+            // Use VirtualizationProxy to update state
+            // Note: Automated execution often skips "Balance Validation" strictness or 
+            // has already been validated? 
+            // Ideally, we should validate too.
+            // But `execute` here receives a signal from Python which might technically 
+            // be an "Already Executed" signal?
+            // "Worker sends signals here" -> Strategy says "I want to buy".
+            // So we DO need to validate and execute real order?
+            // Wait, the DIAGRAM says:
+            // Worker -> Gateway -> Alpaca -> Postgres
+            // So Gateway IS responsible for execution.
+            // However, the current `execute` method input implies it MIGHT have already happened?
+            // "price" is passed in.
+            // If it's a SIGNAL, we should execute it now.
+            // But `execute` implementation had `price` in body.
+            // Let's assume for now we just `updateVirtualState` if we assume Worker/Alpaca sync is handled elsewhere,
+            // OR we should call `executeOrder`.
+            // The original code passed `price` and just did DB updates. It `INSERTED` into `trades`.
+            // It did NOT call Alpaca.
+            // This implies the Worker might be doing the trading?
+            // Checking `worker_design.md`: "BS -->|send_signal| GW". 
+            // "Gateway->>Alpaca: POST /orders".
+            // So Gateway SHOULD call Alpaca.
+            // BUT the original code I replaced didn't call AlpacaService!
+            // It just updated the DB!
+            // "TradeController.ts" line 100: INSERT INTO trades...
+            // It missed the Alpaca call!
+            // So the previous implementation was Mock-only or incomplete.
+
+            // WE SHOULD FIX THIS. Automated strategies should also really trade.
+            // But for now, to replicate "previous behavior + proxy", 
+            // I will use `updateVirtualState` directly, assuming "price" is the execution price.
+            // User did not ask to change Worker flow, but "Virtualization Proxy" implies we proxy *everything*.
+
+            // To be safe and compatible with the "Simulated/Mock" nature if that's what it was:
+            // I'll call `updateVirtualState`.
+
+            const tradeId = await VirtualizationProxy.updateVirtualState(
+                userId,
+                symbol,
+                action.toLowerCase() as 'buy' | 'sell',
+                Number(quantity),
+                Number(price)
             );
 
-            // Update virtual balance
-            const tradeValue = price * quantity;
-            const balanceChange = action === 'BUY' ? -tradeValue : tradeValue;
+            // Link trade to session/signal (VirtualizationProxy doesn't handle session_id yet)
+            // We might need to update the trade record with session_id/signal_id
             await pool.query(
-                `UPDATE users SET virtual_balance = virtual_balance + $1 WHERE id = $2`,
-                [balanceChange, userId]
+                `UPDATE trades SET session_id = $1, signal_id = $2 WHERE id = $3`,
+                [sessionId, signalResult.rows[0].id, tradeId]
             );
 
-            // Update positions
-            if (action === 'BUY') {
-                // Upsert position: add quantity and recalculate average entry price
-                await pool.query(
-                    `INSERT INTO positions (user_id, symbol, quantity, average_entry_price, last_updated)
-                     VALUES ($1, $2, $3, $4, NOW())
-                     ON CONFLICT (user_id, symbol) DO UPDATE SET
-                         average_entry_price = (
-                             (positions.quantity * positions.average_entry_price + $3 * $4) 
-                             / (positions.quantity + $3)
-                         ),
-                         quantity = positions.quantity + $3,
-                         last_updated = NOW()`,
-                    [userId, symbol, quantity, price]
-                );
-            } else if (action === 'SELL') {
-                // Reduce position quantity
-                await pool.query(
-                    `UPDATE positions 
-                     SET quantity = quantity - $3, last_updated = NOW()
-                     WHERE user_id = $1 AND symbol = $2`,
-                    [userId, symbol, quantity]
-                );
-                // Remove position if quantity is 0 or less
-                await pool.query(
-                    `DELETE FROM positions WHERE user_id = $1 AND symbol = $2 AND quantity <= 0`,
-                    [userId, symbol]
-                );
-            }
-
-            console.log(`[TRADE] Executed: ${tradeResult.rows[0].id} | Position updated`);
+            console.log(`[TRADE] Executed: ${tradeId} | Position updated`);
 
             res.status(201).json({
                 message: 'Trade executed',
-                tradeId: tradeResult.rows[0].id,
+                tradeId: tradeId,
                 signalId: signalResult.rows[0].id
             });
         } catch (error) {
@@ -201,12 +252,8 @@ export class TradeController {
         }
 
         try {
-            const userResult = await pool.query(
-                `SELECT virtual_balance FROM users WHERE id = $1`,
-                [userId]
-            );
-
-            const balance = userResult.rows[0]?.virtual_balance || 100000;
+            // Use VirtualizationProxy for accurate PnL
+            const portfolio = await VirtualizationProxy.getVirtualPortfolio(userId);
 
             const statsResult = await pool.query(
                 `SELECT COUNT(*) as total_trades,
@@ -219,9 +266,10 @@ export class TradeController {
             const stats = statsResult.rows[0];
 
             res.json({
-                balance: parseFloat(balance),
+                balance: portfolio.cashBalance,       // "Cash on Hand"
+                portfolioValue: portfolio.portfolioValue, // "Total Account Value"
                 startingBalance: 100000,
-                pnl: parseFloat(balance) - 100000,
+                pnl: portfolio.pnl,                   // "Total PnL"
                 totalTrades: parseInt(stats.total_trades) || 0,
                 buys: parseInt(stats.buys) || 0,
                 sells: parseInt(stats.sells) || 0

@@ -8,6 +8,7 @@ import tradeRoutes from './routes/tradeRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import strategyRoutes from './routes/strategyRoutes.js';
 import internalRoutes from './routes/internalRoutes.js';
+import { tradeReconciliationService } from './services/TradeReconciliationService.js';
 
 const app = express();
 
@@ -27,6 +28,9 @@ async function startServer() {
     try {
         // Connect to Redis
         await redisService.connect();
+
+        // Start Trade Reconciliation Service
+        tradeReconciliationService.start();
 
         app.listen(config.PORT, () => {
             console.log(`Gateway Service running on port ${config.PORT}`);

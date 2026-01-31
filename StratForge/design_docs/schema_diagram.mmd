@@ -1,0 +1,35 @@
+flowchart
+    subgraph "Alpaca"
+        SWS[Stock WebSocket<br/>v2/iex]
+        CWS[Crypto WebSocket<br/>v1beta3/crypto/us]
+    end
+
+    subgraph "Ingestor"
+        SC[StockConsumer]
+        CC[CryptoConsumer]
+        RP[RedisPublisher]
+        CS[ControlSubscriber]
+    end
+
+    subgraph "Redis"
+        MD[market_data:symbol]
+        MT[market_trades:symbol]
+        SU[system:subscription_updates]
+        AS[active_subscriptions:type]
+    end
+
+    SWS -->|Bars, Trades| SC
+    CWS -->|Bars, Trades| CC
+    
+    SC -->|NormalizedBar| RP
+    CC -->|NormalizedBar| RP
+    SC -->|NormalizedTrade| RP
+    CC -->|NormalizedTrade| RP
+    
+    RP -->|PUBLISH| MD
+    RP -->|PUBLISH| MT
+    
+    SU -.->|SUBSCRIBE| CS
+    AS -.->|SMEMBERS on boot| CS
+    CS -->|Add/Remove symbols| SC
+    CS -->|Add/Remove symbols| CC
