@@ -1,0 +1,16 @@
+import { Router } from 'express';
+import { getMarketDataWithIndicators } from '../services/marketDataService';
+
+const router = Router();
+
+router.get('/', async (req, res) => {
+  const { symbol, interval, indicator } = req.query;
+  try {
+    const data = await getMarketDataWithIndicators(symbol as string, interval as string, indicator as string);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch market data' });
+  }
+});
+
+export default router;

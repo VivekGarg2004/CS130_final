@@ -15,5 +15,6 @@ router.delete('/orders/:id', authMiddleware, TradeController.cancelOrder);
 router.get('/history', authMiddleware, TradeController.listUserTrades);
 router.get('/portfolio', authMiddleware, TradeController.getPortfolio);
 router.get('/my-positions', authMiddleware, TradeController.getUserPositions);
+router.get('/indicators', authMiddleware, TradeController.getIndicators);
 
 export default router;

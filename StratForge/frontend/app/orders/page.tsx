@@ -25,7 +25,8 @@ export default function OrdersPage() {
     const fetchOrders = async (status: FilterType) => {
         setIsLoading(true);
         try {
-            const res = await fetch(`http://localhost:3000/trade/orders?status=${status}`);
+	   const res = await fetch(`http://localhost:3000/api/trade/orders?status=${status}`);
+
             if (res.ok) {
                 setOrders(await res.json());
             }

@@ -1,0 +1,67 @@
+import json
+import redis
+import pandas as pd
+import talib
+from collections import defaultdict, deque
+
+# Redis connection
+r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+
+MAX_BARS = 200
+history = defaultdict(lambda: deque(maxlen=MAX_BARS))
+
+
+def compute_indicators(symbol: str, interval: str):
+    df = pd.DataFrame(history[(symbol, interval)])
+
+    if len(df) < 5: #changed from 30 to 5 for now
+        return None
+
+    close = df["close"].astype(float)
+
+    sma = talib.SMA(close, timeperiod=min(20, len(close)))
+    ema = talib.EMA(close, timeperiod=min(20, len(close)))
+    macd, macd_signal, macd_hist = talib.MACD(close)
+
+    return {
+        "symbol": symbol,
+        "interval": interval,
+        "ohlcv": df.to_dict(orient="records"),
+        "indicators": {
+            "SMA_20": sma.dropna().tolist(),
+            "EMA_20": ema.dropna().tolist(),
+            "MACD": macd.dropna().tolist(),
+            "MACD_signal": macd_signal.dropna().tolist(),
+            "MACD_hist": macd_hist.dropna().tolist(),
+        }
+    }
+
+
+def start_indicator_worker():
+    pubsub = r.pubsub()
+    pubsub.psubscribe("market_data:*")
+
+    print("[INDICATOR] Listening for OHLCV bars...")
+
+    for message in pubsub.listen():
+        if message["type"] != "pmessage":
+            continue
+        try:
+            bar = json.loads(message["data"])
+
+            symbol = bar["symbol"]
+            interval = bar.get("interval") or bar.get("timeframe", "1m")
+
+            history[(symbol, interval)].append(bar)
+            result = compute_indicators(symbol, interval)
+            payload = json.dumps(result)
+            if result:
+                key = f"market_indicators:{symbol}:{interval}"
+                r.set(key, payload)
+                r.publish(key, payload)
+                print(f"[INDICATOR] Published -> {key}")
+        except Exception as e:
+            print(f"[INDICATOR] Error: {e}")
+if __name__ == "__main__":
+    start_indicator_worker()
+

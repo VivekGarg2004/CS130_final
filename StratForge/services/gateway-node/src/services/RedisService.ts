@@ -20,7 +20,14 @@ class RedisService {
     async publish(channel: string, message: string) {
         return await this.publisher.publish(channel, message);
     }
+    async get(key: string): Promise<string | null> {
+        return await this.publisher.get(key);
+    }
 
+    async keys(pattern: string): Promise<string[]> {
+        return await this.publisher.keys(pattern);
+    }
+    
     async addToSet(key: string, value: string) {
         return await this.publisher.sAdd(key, value);
     }

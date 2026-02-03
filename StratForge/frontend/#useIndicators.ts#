@@ -1,0 +1,15 @@
+import { useEffect, useState } from 'react';
+import { getIndicators } from '../lib/api';
+
+export const useIndicators = () => {
+  const [indicators, setIndicators] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getIndicators()
+      .then(setIndicators)
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { indicators, loading };
+};

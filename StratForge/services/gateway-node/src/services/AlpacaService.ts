@@ -7,12 +7,16 @@ class AlpacaService {
     private alpaca: any;
 
     constructor() {
+
         this.alpaca = new Alpaca({
             keyId: process.env.ALPACA_API_KEY,
             secretKey: process.env.ALPACA_SECRET_KEY,
             paper: true, // Always paper for now as per plan
-        });
+
+	    });
     }
+
+
 
     async getAccount() {
         return await this.alpaca.getAccount();

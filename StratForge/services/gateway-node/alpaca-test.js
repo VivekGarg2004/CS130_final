@@ -1,0 +1,27 @@
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const Alpaca = require('@alpacahq/alpaca-trade-api');
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({ path: path.resolve('../../.env') });
+
+// Check if env vars are loaded
+console.log('ALPACA_API_KEY:', process.env.ALPACA_API_KEY ? 'SET' : 'MISSING');
+console.log('ALPACA_SECRET_KEY:', process.env.ALPACA_SECRET_KEY ? 'SET' : 'MISSING');
+
+const alpaca = new Alpaca({
+    keyId: process.env.ALPACA_API_KEY,
+    secretKey: process.env.ALPACA_SECRET_KEY,
+    paper: true,
+});
+
+async function testAlpaca() {
+    try {
+        const account = await alpaca.getAccount();
+        console.log('Account info:', account);
+    } catch (err) {
+        console.error('Error calling Alpaca:', err.response ? err.response.data : err.message);
+    }
+}
+
+testAlpaca();

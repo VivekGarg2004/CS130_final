@@ -3,6 +3,10 @@ import path from 'path';
 
 // Load .env from root
 dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
+console.log('Loaded env:', {
+  ALPACA_API_KEY: process.env.ALPACA_API_KEY ? 'SET' : 'MISSING',
+  ALPACA_SECRET_KEY: process.env.ALPACA_SECRET_KEY ? 'SET' : 'MISSING',
+});
 
 export const config = {
     PORT: process.env.GATEWAY_PORT || 3000,

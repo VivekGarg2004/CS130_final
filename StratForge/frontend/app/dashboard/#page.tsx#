@@ -1,11 +1,11 @@
-'use client';
+xxxx'use client';
 
 import DashboardLayout from '@/components/DashboardLayout';
 import Portfolio from '@/components/Portfolio';
 import TradeBlotter from '@/components/TradeBlotter';
 import PositionsTable from '@/components/PositionsTable';
 import TradeHistory from '@/components/TradeHistory';
-
+import IndicatorsTable from '@/components/IndicatorsTable';
 
 
 export default function DashboardPage() {
@@ -25,6 +25,7 @@ export default function DashboardPage() {
                     {/* Portfolio (charts + summary) */}
                     <div className="lg:col-span-2 space-y-4">
                         <Portfolio /> {/* Chart */}
+                        <Portfolio /> {/* Summary table / metrics */}
                     </div>
 
                     {/* TradeBlotter */}
@@ -39,6 +40,11 @@ export default function DashboardPage() {
                     <TradeHistory />
                 </div>
 
+                {/* Bottom: Indicators */}
+                <div className="space-y-4">
+                    <h2 className="text-xl font-semibold text-white">Indicators</h2>
+                    <IndicatorsTable />
+                </div>
             </div>
         </DashboardLayout>
     );

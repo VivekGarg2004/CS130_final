@@ -1,3 +1,4 @@
+import { redisService } from '../services/RedisService.js';
 import { Request, Response } from 'express';
 import { alpacaService } from '../services/AlpacaService.js';
 import { VirtualizationProxy } from '../services/VirtualizationProxy.js';
@@ -18,6 +19,55 @@ export class TradeController {
         }
     }
 
+
+    static async getIndicators(req: AuthenticatedRequest, res: Response) {
+        const userId = req.user?.id;
+        if (!userId) {
+            res.status(401).json({ error: 'Not authenticated' });
+            return;
+        }
+
+        try {
+            await redisService.connect();
+
+            // Get all available indicator keys from Redis
+            const keys = await redisService.keys('market_indicators:*');
+
+            if (keys.length === 0) {
+                res.json({ indicators: [] });
+                return;
+            }
+
+            const indicators = [];
+            for (const key of keys) {
+                const cached = await redisService.get(key);
+                if (!cached) continue;
+
+                const parsed = JSON.parse(cached);
+                const smaArr = parsed.indicators?.SMA_20 || [];
+                const emaArr = parsed.indicators?.EMA_20 || [];
+		const rsIArr = parsed.indicators?.RSI_14 || [];
+
+
+                indicators.push({
+                    symbol: parsed.symbol,
+                    interval: parsed.interval,
+                    sma: smaArr.length ? parseFloat(smaArr[smaArr.length - 1].toFixed(2)) : null,
+                    ema: emaArr.length ? parseFloat(emaArr[emaArr.length - 1].toFixed(2)) : null,
+		    rsi: rsiArr.length ? parseFloat(rsiArr[rsiArr.length - 1].toFixed(2)) : null,
+                    macd: (parsed.indicators?.MACD || []).slice(-1)[0] ?? null,
+                    ohlcv: parsed.ohlcv,
+                });
+            }
+
+            res.json({ indicators });
+        } catch (err: any) {
+            console.error('[INDICATORS]', err);
+            res.status(500).json({ error: 'Failed to fetch indicators' });
+        }
+    }
+
+    
     static async getPositions(req: Request, res: Response): Promise<void> {
         try {
             const positions = await alpacaService.getPositions();
@@ -73,7 +123,8 @@ export class TradeController {
 
     static async cancelOrder(req: AuthenticatedRequest, res: Response): Promise<void> {
         const userId = req.user?.id;
-        const { id } = req.params;
+	const id = req.params.id as string;
+
 
         if (!userId) {
             res.status(401).json({ error: 'Not authenticated' });

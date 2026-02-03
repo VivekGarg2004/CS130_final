@@ -1,0 +1,15 @@
+import { useEffect, useState } from 'react';
+import { getTradeHistory } from '../lib/api';
+
+export const useTradeHistory = () => {
+  const [trades, setTrades] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getTradeHistory()
+      .then(setTrades)
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { trades, loading };
+};

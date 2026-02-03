@@ -1,0 +1,15 @@
+import { useEffect, useState } from 'react';
+import { getPositions } from '../lib/api';
+
+export const usePositions = () => {
+  const [positions, setPositions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getPositions()
+      .then((data) => setPositions(data))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { positions, loading };
+};

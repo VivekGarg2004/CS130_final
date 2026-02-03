@@ -1,0 +1,45 @@
+import {redisService} from './RedisService.js';
+
+export async function getMarketDataWithIndicators(
+  symbol: string,
+  interval: string,
+  indicator?: string
+) {
+  if (!symbol || !interval) {
+    throw new Error("symbol and interval are required");
+  }
+
+  const redis = redisService.getClient();
+  const key = `market_indicators:${symbol.toUpperCase()}:${interval}`;
+
+  const cached = await redis.get(key);
+
+  // Python hasn't written yet
+  if (!cached) {
+    return {
+      symbol,
+      interval,
+      ohlcv: [],
+      indicator: null,
+    };
+  }
+
+  const parsed = JSON.parse(cached);
+
+  // Frontend requests a single indicator
+  if (indicator && parsed.indicators) {
+    return {
+      symbol,
+      interval,
+      ohlcv: parsed.ohlcv,
+      indicator: parsed.indicators[indicator] ?? null,
+    };
+  }
+
+  return {
+    symbol,
+    interval,
+    ohlcv: parsed.ohlcv,
+    indicator: parsed.indicators,
+  };
+}

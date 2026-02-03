@@ -1,0 +1,48 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { getToken } from '@/lib/auth';
+
+interface Indicator {
+  symbol: string;
+  interval: string;
+  sma: number | null;
+  ema: number | null;
+  rsi: number | null;
+  macd: number | null;
+  ohlcv: Array<{ open: number; high: number; low: number; close: number; volume: number; timestamp: string }>;
+}
+
+export const useIndicators = () => {
+  const [indicators, setIndicators] = useState<Indicator[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchIndicators = async () => {
+      setLoading(true);
+      try {
+        const token = getToken();
+        const res = await fetch('http://localhost:3000/api/trade/indicators', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error('Failed to fetch indicators');
+        const json = await res.json();
+        console.log('RAW API RESPONSE:', JSON.stringify(json));
+        setIndicators(json.indicators || []);
+        setError(null);
+      } catch (err: any) {
+        console.error(err);
+        setError(err.message || 'Unknown error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchIndicators();
+    const interval = setInterval(fetchIndicators, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return { indicators, loading, error };
+};
