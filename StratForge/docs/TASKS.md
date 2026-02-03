@@ -33,7 +33,6 @@ These tasks only touch `services/gateway-node/`.
 | **Password Reset** | Medium | Reset password flow | `controllers/AuthController.ts` |
 | **Rate Limiting** | Medium | Prevent API abuse | `middleware/rateLimit.ts` |
 | **Request Validation** | Medium | Joi/Zod schema validation | `middleware/validation.ts` |
-| **Internal Execute** | Hard | `POST /internal/execute` for worker | `routes/internalRoutes.ts` |
 
 ---
 
@@ -47,8 +46,6 @@ These tasks only touch `services/worker-python/`.
 | **RSI Strategy** | Easy | Relative strength index | `strategies/rsi_strategy.py` |
 | **MACD Strategy** | Medium | Moving average convergence | `strategies/macd_strategy.py` |
 | **Signal Logging** | Easy | Log signals to console/file | `services/strategy_manager.py` |
-| **Strategy Loader** | Medium | Load strategy from DB | `services/db_client.py` |
-| **Dynamic Exec** | Hard | Execute AI-generated code safely | `services/code_executor.py` |
 
 ---
 
@@ -75,14 +72,16 @@ These touch multiple areas - assign to one person or pair.
 
 ---
 
-## Suggested Team Split (4 people)
+## ✅ Completed Tasks
 
-| Person | Focus Area | First Tasks |
-|--------|------------|-------------|
-| **Person A** | Frontend | Settings page, Toast notifications |
-| **Person B** | Gateway API | Strategy CRUD, Health endpoint |
-| **Person C** | Python Worker | SMA Strategy, RSI Strategy |
-| **Person D** | Integration | Internal execute, Signal flow |
+| Task | Area | Notes |
+|------|------|-------|
+| Constants File | Gateway | `config/constants.ts` - Redis channels, keys, streams |
+| TypeScript Types | Gateway | `types/api.ts` - API request/response interfaces |
+| README | Gateway | Setup, API docs, architecture overview |
+| Strategy Loader | Worker | `db_client.py` - fetches strategy from Postgres |
+| Dynamic Exec | Worker | Docker-based execution via `docker_manager.py` |
+| Internal Execute | Gateway | Not needed - using Redis Streams instead |
 
 ---
 
@@ -103,11 +102,8 @@ Strategy CRUD (Backend) ─────┐
                              ├──▶ Strategy Builder UI (Frontend)
 Strategy List Page (Frontend)┘
 
-SMA/RSI Strategies (Python) ─┬──▶ Dynamic Exec (Python)
-Strategy Loader (Python) ────┘
-
-Internal Execute (Backend) ──┬──▶ Full Signal Flow
-Signal Logging (Python) ─────┘
+SMA/RSI Strategies (Python) ─┬──▶ BaseStrategy API
+Docker Containers ───────────┘
 ```
 
 Work on left side first, then right side.

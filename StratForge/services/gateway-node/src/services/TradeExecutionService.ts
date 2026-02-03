@@ -2,11 +2,13 @@
 import { redisService } from './RedisService.js';
 import { TradeController } from '../controllers/TradeController.js';
 import { pool } from '../db.js';
+import { REDIS_STREAMS } from '../config/constants.js';
+import { TradeSignal } from '../types/api.js';
 
 export class TradeExecutionService {
     private isRunning = false;
-    private streamKey = 'trade_signals';
-    private groupName = 'gateway_group';
+    private streamKey = REDIS_STREAMS.TRADE_SIGNALS;
+    private groupName = REDIS_STREAMS.TRADE_SIGNALS_GROUP;
     private consumerName = 'gateway_node_1';
 
     async start() {

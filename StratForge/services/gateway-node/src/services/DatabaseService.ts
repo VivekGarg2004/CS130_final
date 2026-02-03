@@ -91,7 +91,7 @@ export const databaseService = {
     // this is for multiple session stops (when a strategy is deleted)  
     async stopStrategySessions(strategyId: string) {
         try {
-            // Update all running sessions for a strategy and get their symbol
+            // Update all running sessions for a strategy and return their IDs
             const res = await pool.query(
                 `WITH updated_sessions AS (
                     UPDATE sessions
@@ -99,15 +99,20 @@ export const databaseService = {
                     WHERE strategy_id = $1 AND status = 'RUNNING'
                     RETURNING id
                  )
-                 SELECT (SELECT symbol FROM strategies WHERE id = $1) as symbol,
-                        COUNT(*) as count
-                 FROM updated_sessions`,
+                 SELECT us.id as session_id, 
+                        (SELECT symbol FROM strategies WHERE id = $1) as symbol
+                 FROM updated_sessions us`,
                 [strategyId]
             );
 
+            // Extract session IDs and symbol
+            const sessionIds = res.rows.map(r => r.session_id);
+            const symbol = res.rows.length > 0 ? res.rows[0].symbol : null;
+
             return {
-                symbol: res.rows[0].symbol,
-                count: parseInt(res.rows[0].count)
+                symbol,
+                sessionIds,
+                count: sessionIds.length
             };
         } catch (error) {
             console.error(`[DB] Failed to stop sessions for strategy ${strategyId}:`, error);

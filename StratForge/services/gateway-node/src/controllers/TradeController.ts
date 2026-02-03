@@ -3,6 +3,7 @@ import { alpacaService } from '../services/AlpacaService.js';
 import { VirtualizationProxy } from '../services/VirtualizationProxy.js';
 import { pool } from '../db.js';
 import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
+import { PlaceOrderRequest } from '../types/api.js';
 
 export class TradeController {
 
@@ -15,7 +16,7 @@ export class TradeController {
         }
 
         try {
-            const result = await this.placeOrder(userId, req.body);
+            const result = await this.placeOrder(userId, req.body as PlaceOrderRequest);
             res.status(201).json(result);
         } catch (err: any) {
             console.error("Order Execution Error:", err);
@@ -24,8 +25,7 @@ export class TradeController {
     }
 
     // Core logic for placing an order (used by both manual and automated flows)
-    // TODO: ensure that we do not place orders for symbols that are not supported
-    static async placeOrder(userId: string, orderParams: any): Promise<any> {
+    static async placeOrder(userId: string, orderParams: PlaceOrderRequest) {
         const { symbol, qty, side, type, limit_price, time_in_force, sessionId, signalId } = orderParams;
 
         if (!symbol || !qty || !side) {
