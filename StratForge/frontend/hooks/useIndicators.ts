@@ -1,5 +1,4 @@
 'use client';
-
 import { useState, useEffect } from 'react';
 import { getToken } from '@/lib/auth';
 
@@ -20,7 +19,6 @@ export const useIndicators = () => {
 
   useEffect(() => {
     const fetchIndicators = async () => {
-      setLoading(true);
       try {
         const token = getToken();
         const res = await fetch('http://localhost:3000/api/trade/indicators', {
@@ -28,19 +26,18 @@ export const useIndicators = () => {
         });
         if (!res.ok) throw new Error('Failed to fetch indicators');
         const json = await res.json();
-        console.log('RAW API RESPONSE:', JSON.stringify(json));
         setIndicators(json.indicators || []);
         setError(null);
+        setLoading(false);
       } catch (err: any) {
         console.error(err);
         setError(err.message || 'Unknown error');
-      } finally {
         setLoading(false);
       }
     };
 
     fetchIndicators();
-    const interval = setInterval(fetchIndicators, 5000);
+    const interval = setInterval(fetchIndicators, 10000); // 10 seconds
     return () => clearInterval(interval);
   }, []);
 

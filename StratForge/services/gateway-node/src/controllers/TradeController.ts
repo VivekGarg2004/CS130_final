@@ -20,17 +20,15 @@ export class TradeController {
     }
 
 
-    static async getIndicators(req: AuthenticatedRequest, res: Response) {
+static async getIndicators(req: AuthenticatedRequest, res: Response) {
         const userId = req.user?.id;
         if (!userId) {
             res.status(401).json({ error: 'Not authenticated' });
             return;
         }
-
-        try {
+	 try {
             await redisService.connect();
 
-            // Get all available indicator keys from Redis
             const keys = await redisService.keys('market_indicators:*');
 
             if (keys.length === 0) {
@@ -46,15 +44,14 @@ export class TradeController {
                 const parsed = JSON.parse(cached);
                 const smaArr = parsed.indicators?.SMA_20 || [];
                 const emaArr = parsed.indicators?.EMA_20 || [];
-		const rsIArr = parsed.indicators?.RSI_14 || [];
+                const rsiArr = parsed.indicators?.RSI_14 || [];
 
-
-                indicators.push({
+		indicators.push({
                     symbol: parsed.symbol,
                     interval: parsed.interval,
                     sma: smaArr.length ? parseFloat(smaArr[smaArr.length - 1].toFixed(2)) : null,
                     ema: emaArr.length ? parseFloat(emaArr[emaArr.length - 1].toFixed(2)) : null,
-		    rsi: rsiArr.length ? parseFloat(rsiArr[rsiArr.length - 1].toFixed(2)) : null,
+                    rsi: rsiArr.length ? parseFloat(rsiArr[rsiArr.length - 1].toFixed(2)) : null,
                     macd: (parsed.indicators?.MACD || []).slice(-1)[0] ?? null,
                     ohlcv: parsed.ohlcv,
                 });
@@ -66,7 +63,6 @@ export class TradeController {
             res.status(500).json({ error: 'Failed to fetch indicators' });
         }
     }
-
     
     static async getPositions(req: Request, res: Response): Promise<void> {
         try {
