@@ -1,6 +1,7 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { pool } from '../db.js';
 import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
+import { sessionService } from '../services/SessionService.js';
 
 export class StrategyController {
     // Create a new strategy
@@ -128,6 +129,7 @@ export class StrategyController {
     }
 
     // Update a strategy
+    // TODO: ensure we do not update a strategy that is currently running
     static async update(req: AuthenticatedRequest, res: Response): Promise<void> {
         const { id } = req.params;
         const { name, symbol, pythonCode, logicExplanation } = req.body;
@@ -182,6 +184,8 @@ export class StrategyController {
     }
 
     // Stop all running sessions for a strategy
+
+    // TODO: ensure that when we stop sessions we also send a stop to the python workers (polling vs event driven)
     static async stopSessions(req: AuthenticatedRequest, res: Response): Promise<void> {
         const { id } = req.params;
         const userId = req.user?.id;
@@ -194,7 +198,7 @@ export class StrategyController {
         try {
             // Verify strategy belongs to user
             const strategyCheck = await pool.query(
-                `SELECT id, symbol FROM strategies WHERE id = $1 AND user_id = $2`,
+                `SELECT id FROM strategies WHERE id = $1 AND user_id = $2`,
                 [id, userId]
             );
 
@@ -203,48 +207,13 @@ export class StrategyController {
                 return;
             }
 
-            const strategySymbol = strategyCheck.rows[0].symbol;
-
-            // Stop all running sessions for this strategy
-            const stoppedSessions = await pool.query(
-                `UPDATE sessions 
-                 SET status = 'STOPPED', ended_at = NOW()
-                 WHERE strategy_id = $1 AND status = 'RUNNING'
-                 RETURNING id`,
-                [id]
-            );
-
-            console.log(`[STRATEGY] Stopped ${stoppedSessions.rows.length} sessions for strategy ${id}`);
-
-            // Handle Redis cleanup
-            if (stoppedSessions.rows.length > 0) {
-                try {
-                    const { redisService } = await import('../services/RedisService.js');
-                    const { databaseService } = await import('../services/DatabaseService.js');
-
-                    const isStillNeeded = await databaseService.hasActiveSessionsForSymbol(strategySymbol);
-
-                    if (!isStillNeeded) {
-                        const setKey = `active_subscriptions:stock`;
-                        await redisService.removeFromSet(setKey, strategySymbol);
-
-                        const event = {
-                            action: 'unsubscribe',
-                            symbol: strategySymbol,
-                            type: 'stock'
-                        };
-                        await redisService.publish('system:subscription_updates', JSON.stringify(event));
-                        console.log(`[STRATEGY] Unsubscribed from ${strategySymbol}`);
-                    }
-                } catch (redisErr) {
-                    console.error('[STRATEGY] Redis cleanup error:', redisErr);
-                }
-            }
+            // Centralized session stopping via SessionService
+            const { count } = await sessionService.stopStrategySessions(id as string);
 
             res.json({
                 message: 'Sessions stopped',
                 strategyId: id,
-                sessionsStopped: stoppedSessions.rows.length
+                sessionsStopped: count
             });
         } catch (error) {
             console.error('[STRATEGY] Stop sessions error:', error);
@@ -253,6 +222,7 @@ export class StrategyController {
     }
 
     // Delete a strategy
+    // TODO: figure out way to stop the dynamic python worker that is running the strategy
     static async delete(req: AuthenticatedRequest, res: Response): Promise<void> {
         const { id } = req.params;
         const userId = req.user?.id;
@@ -277,54 +247,19 @@ export class StrategyController {
             const strategySymbol = strategyCheck.rows[0].symbol;
             console.log(`[STRATEGY] Deleting strategy ${id} (symbol: ${strategySymbol})`);
 
-            // 2. Stop all running sessions for this strategy in a single UPDATE query
-            // This returns the sessions that were stopped so we can handle Redis cleanup
-            const stoppedSessions = await pool.query(
-                `UPDATE sessions 
-                 SET status = 'STOPPED', ended_at = NOW()
-                 WHERE strategy_id = $1 AND status = 'RUNNING'
-                 RETURNING id`,
-                [id]
-            );
+            // 2. Stop all running sessions via centralized service
+            const { count } = await sessionService.stopStrategySessions(id as string);
 
-            console.log(`[STRATEGY] Stopped ${stoppedSessions.rows.length} sessions`);
+            console.log(`[STRATEGY] Stopped ${count} sessions during deletion`);
 
-            // 3. Handle Redis cleanup if sessions were stopped
-            if (stoppedSessions.rows.length > 0) {
-                try {
-                    const { redisService } = await import('../services/RedisService.js');
-                    const { databaseService } = await import('../services/DatabaseService.js');
-
-                    // Check if any other sessions still need this symbol
-                    const isStillNeeded = await databaseService.hasActiveSessionsForSymbol(strategySymbol);
-
-                    if (!isStillNeeded) {
-                        // Remove from Redis and unsubscribe
-                        const setKey = `active_subscriptions:stock`;
-                        await redisService.removeFromSet(setKey, strategySymbol);
-
-                        const event = {
-                            action: 'unsubscribe',
-                            symbol: strategySymbol,
-                            type: 'stock'
-                        };
-                        await redisService.publish('system:subscription_updates', JSON.stringify(event));
-                        console.log(`[STRATEGY] Unsubscribed from ${strategySymbol}`);
-                    }
-                } catch (redisErr) {
-                    console.error('[STRATEGY] Redis cleanup error (non-fatal):', redisErr);
-                    // Continue with deletion even if Redis cleanup fails
-                }
-            }
-
-            // 4. Delete the strategy
+            // 3. Delete the strategy
             await pool.query(
                 `DELETE FROM strategies WHERE id = $1 AND user_id = $2`,
                 [id, userId]
             );
 
             console.log(`[STRATEGY] Deleted strategy ${id}`);
-            res.json({ message: 'Strategy deleted', id, sessionsStoppied: stoppedSessions.rows.length });
+            res.json({ message: 'Strategy deleted', id, sessionsStopped: count });
         } catch (error) {
             console.error('[STRATEGY] Delete error:', error);
             res.status(500).json({ error: 'Failed to delete strategy' });

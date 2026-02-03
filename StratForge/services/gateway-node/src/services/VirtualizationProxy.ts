@@ -22,6 +22,8 @@ interface OrderParams {
     type: 'market' | 'limit';
     time_in_force: 'day' | 'gtc' | 'ioc';
     limit_price?: number;
+    sessionId?: string;
+    signalId?: string;
 }
 
 interface ExecuteResult {
@@ -32,7 +34,6 @@ interface ExecuteResult {
 
 export class VirtualizationProxy {
 
-    // NEW: Execute Order Flow with Status Tracking
     static async executeOrder(userId: string, orderParams: OrderParams): Promise<ExecuteResult> {
         const { symbol, qty, side, type } = orderParams;
 
@@ -81,10 +82,10 @@ export class VirtualizationProxy {
 
             // Insert Trade with PENDING status
             const tradeRes = await client.query(
-                `INSERT INTO trades (user_id, symbol, action, price, quantity, alpaca_order_id, status, type, executed_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7, NOW())
+                `INSERT INTO trades (user_id, symbol, action, price, quantity, alpaca_order_id, status, type, session_id, signal_id, executed_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7, $8, $9, NOW())
                  RETURNING id`,
-                [userId, symbol, action, priceToRecord, qty, (order as any).id, type?.toUpperCase() || 'MARKET']
+                [userId, symbol, action, priceToRecord, qty, (order as any).id, type?.toUpperCase() || 'MARKET', orderParams.sessionId, orderParams.signalId]
             );
             tradeId = tradeRes.rows[0].id;
 
@@ -244,6 +245,9 @@ export class VirtualizationProxy {
         return parseFloat(result.rows[0]?.virtual_balance || '0');
     }
 
+    /**
+     * @deprecated The method should not be used
+     */
     static async updateVirtualState(
         userId: string,
         symbol: string,

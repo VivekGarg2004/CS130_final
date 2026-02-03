@@ -39,6 +39,7 @@ export const databaseService = {
         };
     },
 
+    // this is for individual session stops 
     async stopSession(sessionId: string) {
         try {
             // Update and Return, joining with strategies to get symbol back for the UI return object
@@ -85,5 +86,32 @@ export const databaseService = {
             [symbol]
         );
         return parseInt(res.rows[0].count) > 0;
+    },
+
+    // this is for multiple session stops (when a strategy is deleted)  
+    async stopStrategySessions(strategyId: string) {
+        try {
+            // Update all running sessions for a strategy and get their symbol
+            const res = await pool.query(
+                `WITH updated_sessions AS (
+                    UPDATE sessions
+                    SET status = 'STOPPED', ended_at = NOW()
+                    WHERE strategy_id = $1 AND status = 'RUNNING'
+                    RETURNING id
+                 )
+                 SELECT (SELECT symbol FROM strategies WHERE id = $1) as symbol,
+                        COUNT(*) as count
+                 FROM updated_sessions`,
+                [strategyId]
+            );
+
+            return {
+                symbol: res.rows[0].symbol,
+                count: parseInt(res.rows[0].count)
+            };
+        } catch (error) {
+            console.error(`[DB] Failed to stop sessions for strategy ${strategyId}:`, error);
+            throw error;
+        }
     }
 };

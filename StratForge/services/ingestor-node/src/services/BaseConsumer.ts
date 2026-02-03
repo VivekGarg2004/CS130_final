@@ -12,7 +12,7 @@ export abstract class BaseConsumer {
 
     public abstract connect(): Promise<void>;
     public abstract disconnect(): void;
-    protected abstract flushSubscriptions(): void;
+    protected abstract flushSubscriptions(newBars?: string[], newTrades?: string[]): void;
 
     public setOnBarCallback(callback: (bar: NormalizedBar) => void) {
         this.onBarCallback = callback;
@@ -23,32 +23,32 @@ export abstract class BaseConsumer {
     }
 
     public subscribeToBars(symbols: string[]) {
-        let newSubs = 0;
+        const newSymbols: string[] = [];
         symbols.forEach(s => {
             if (!this.subscribedBars.has(s)) {
                 this.subscribedBars.add(s);
-                newSubs++;
+                newSymbols.push(s);
             }
         });
 
-        if (newSubs > 0) {
-            logger.info(`Subscribing to ${newSubs} new bars. Total: ${this.subscribedBars.size}`);
-            this.flushSubscriptions();
+        if (newSymbols.length > 0) {
+            logger.info(`Subscribing to ${newSymbols.length} new bars. Total tracked: ${this.subscribedBars.size}`);
+            this.flushSubscriptions(newSymbols, undefined);
         }
     }
 
     public subscribeToTrades(symbols: string[]) {
-        let newSubs = 0;
+        const newSymbols: string[] = [];
         symbols.forEach(s => {
             if (!this.subscribedTrades.has(s)) {
                 this.subscribedTrades.add(s);
-                newSubs++;
+                newSymbols.push(s);
             }
         });
 
-        if (newSubs > 0) {
-            logger.info(`Subscribing to ${newSubs} new trades. Total: ${this.subscribedTrades.size}`);
-            this.flushSubscriptions();
+        if (newSymbols.length > 0) {
+            logger.info(`Subscribing to ${newSymbols.length} new trades. Total tracked: ${this.subscribedTrades.size}`);
+            this.flushSubscriptions(undefined, newSymbols);
         }
     }
 }

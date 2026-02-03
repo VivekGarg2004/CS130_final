@@ -71,20 +71,22 @@ export class StockConsumer extends BaseConsumer {
         }
     }
 
-    protected flushSubscriptions(): void {
+    protected flushSubscriptions(newBars?: string[], newTrades?: string[]): void {
         // Only flush if we are fully authenticated
         if (!this.isConnected) {
             return;
         }
 
-        const bars = Array.from(this.subscribedBars);
-        const trades = Array.from(this.subscribedTrades);
+        // If specific new symbols are provided (incremental update), use them.
+        // Otherwise (reconnect), use the full set.
+        const barsToSend = newBars ? newBars : Array.from(this.subscribedBars);
+        const tradesToSend = newTrades ? newTrades : Array.from(this.subscribedTrades);
 
-        if (bars.length === 0 && trades.length === 0) return;
+        if (barsToSend.length === 0 && tradesToSend.length === 0) return;
 
         this.sendSubscribe({
-            bars: bars.length > 0 ? bars : undefined,
-            trades: trades.length > 0 ? trades : undefined
+            bars: barsToSend.length > 0 ? barsToSend : undefined,
+            trades: tradesToSend.length > 0 ? tradesToSend : undefined
         });
     }
 
@@ -186,5 +188,23 @@ export class StockConsumer extends BaseConsumer {
     public subscribeQuotes(symbols: string[]): void {
         symbols.forEach(s => this.subscribedBars.add(s)); // Reuse the bars set or create a new one
         this.flushSubscriptions();
+    }
+
+    public unsubscribe(symbols: string[]): void {
+        const toUnsubscribe: string[] = [];
+        symbols.forEach(s => {
+            if (this.subscribedBars.delete(s)) toUnsubscribe.push(s);
+            this.subscribedTrades.delete(s); // Remove from both
+        });
+
+        if (toUnsubscribe.length > 0 && this.isConnected) {
+            const unsubMsg = {
+                action: 'unsubscribe',
+                bars: toUnsubscribe,
+                trades: toUnsubscribe
+            };
+            logger.info(`Sending Stock Unsubscription: ${JSON.stringify(unsubMsg)}`);
+            this.ws?.send(JSON.stringify(unsubMsg));
+        }
     }
 }

@@ -29,6 +29,29 @@ class RedisService {
         return await this.publisher.sRem(key, value);
     }
 
+    // Stream Support
+    async xGroupCreate(key: string, group: string, id: string = '$', options?: { MKSTREAM?: boolean }) {
+        try {
+            return await this.publisher.xGroupCreate(key, group, id, options);
+        } catch (e: any) {
+            if (e.message.includes('BUSYGROUP')) return 'OK';
+            throw e;
+        }
+    }
+
+    async xReadGroup(group: string, consumer: string, key: string, id: string = '>', count: number = 1) {
+        return await this.publisher.xReadGroup(
+            group,
+            consumer,
+            { key, id },
+            { COUNT: count, BLOCK: 2000 }
+        );
+    }
+
+    async xAck(key: string, group: string, id: string) {
+        return await this.publisher.xAck(key, group, id);
+    }
+
     async disconnect() {
         await this.publisher.disconnect();
     }

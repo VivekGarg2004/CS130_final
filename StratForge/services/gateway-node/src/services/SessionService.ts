@@ -61,5 +61,33 @@ export const sessionService = {
         }
 
         return session;
+    },
+
+    async stopStrategySessions(strategyId: string) {
+        console.log(`[SERVICE] Stopping all sessions for strategy ${strategyId}...`);
+
+        // 1. Stop in DB
+        const { symbol, count } = await databaseService.stopStrategySessions(strategyId);
+        if (count === 0) return { count: 0 };
+
+        // 2. Check if symbol is still needed
+        const isStillNeeded = await databaseService.hasActiveSessionsForSymbol(symbol);
+
+        if (!isStillNeeded) {
+            // 3. Cleanup Redis
+            const setKey = `active_subscriptions:stock`;
+            await redisService.removeFromSet(setKey, symbol);
+
+            // 4. Publish Unsubscribe
+            const event = {
+                action: 'unsubscribe',
+                symbol,
+                type: 'stock'
+            };
+            await redisService.publish('system:subscription_updates', JSON.stringify(event));
+            console.log(`[SERVICE] Strategy ${strategyId} stopped. Last session for ${symbol} cleaned up.`);
+        }
+
+        return { count, symbol };
     }
 };

@@ -61,6 +61,7 @@ export class ControlSubscriber {
         }
     }
 
+
     private handleMessage(message: string) {
         try {
             const event = JSON.parse(message);
@@ -76,6 +77,12 @@ export class ControlSubscriber {
                     // Default to Stock
                     this.StockConsumer.subscribeToBars([symbol]);
                     this.StockConsumer.subscribeToTrades([symbol]);
+                }
+            } else if (action === 'unsubscribe') {
+                if (type === 'crypto') {
+                    this.cryptoConsumer.unsubscribe([symbol]);
+                } else {
+                    this.StockConsumer.unsubscribe([symbol]);
                 }
             }
         } catch (err) {

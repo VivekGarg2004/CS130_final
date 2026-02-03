@@ -68,20 +68,20 @@ export class CryptoConsumer extends BaseConsumer {
         }
     }
 
-    protected flushSubscriptions(): void {
+    protected flushSubscriptions(newBars?: string[], newTrades?: string[]): void {
         // Only flush if we are fully authenticated
         if (!this.isConnected) {
             return;
         }
 
-        const bars = Array.from(this.subscribedBars);
-        const trades = Array.from(this.subscribedTrades);
+        const barsToSend = newBars ? newBars : Array.from(this.subscribedBars);
+        const tradesToSend = newTrades ? newTrades : Array.from(this.subscribedTrades);
 
-        if (bars.length === 0 && trades.length === 0) return;
+        if (barsToSend.length === 0 && tradesToSend.length === 0) return;
 
         this.sendSubscribe({
-            bars: bars.length > 0 ? bars : undefined,
-            trades: trades.length > 0 ? trades : undefined
+            bars: barsToSend.length > 0 ? barsToSend : undefined,
+            trades: tradesToSend.length > 0 ? tradesToSend : undefined
         });
     }
 
@@ -95,6 +95,8 @@ export class CryptoConsumer extends BaseConsumer {
         this.ws?.send(JSON.stringify(authMsg));
     }
 
+    // right now on all new tickers we resubscribe to all of them
+    // we should only subscribe to the new tickers
     private sendSubscribe(payload: { bars?: string[], trades?: string[] }) {
         const subMsg = {
             action: 'subscribe',
@@ -162,6 +164,23 @@ export class CryptoConsumer extends BaseConsumer {
 
         if (this.onTradeCallback) {
             this.onTradeCallback(normalized);
+        }
+    }
+    public unsubscribe(symbols: string[]): void {
+        const toUnsubscribe: string[] = [];
+        symbols.forEach(s => {
+            if (this.subscribedBars.delete(s)) toUnsubscribe.push(s);
+            this.subscribedTrades.delete(s);
+        });
+
+        if (toUnsubscribe.length > 0 && this.isConnected) {
+            const unsubMsg = {
+                action: 'unsubscribe',
+                bars: toUnsubscribe,
+                trades: toUnsubscribe
+            };
+            logger.info(`Sending Crypto Unsubscription: ${JSON.stringify(unsubMsg)}`);
+            this.ws?.send(JSON.stringify(unsubMsg));
         }
     }
 }

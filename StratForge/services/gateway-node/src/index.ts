@@ -7,8 +7,8 @@ import sessionRoutes from './routes/sessionRoutes.js';
 import tradeRoutes from './routes/tradeRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import strategyRoutes from './routes/strategyRoutes.js';
-import internalRoutes from './routes/internalRoutes.js';
 import { tradeReconciliationService } from './services/TradeReconciliationService.js';
+import { tradeExecutionService } from './services/TradeExecutionService.js';
 
 const app = express();
 
@@ -22,7 +22,6 @@ app.use('/api/auth', authRoutes);
 app.use('/api/strategies', strategyRoutes);
 app.use('/api/trade', tradeRoutes);
 app.use('/sessions', sessionRoutes);
-app.use('/internal', internalRoutes);
 
 async function startServer() {
     try {
@@ -31,6 +30,9 @@ async function startServer() {
 
         // Start Trade Reconciliation Service
         tradeReconciliationService.start();
+
+        // Start Trade Execution Service (Redis Consumer)
+        tradeExecutionService.start();
 
         app.listen(config.PORT, () => {
             console.log(`Gateway Service running on port ${config.PORT}`);
